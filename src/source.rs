@@ -14,6 +14,14 @@ impl<'a> Source<'a> {
         let code = std::fs::read_to_string(filename)?;
         Ok(Source { filename, code })
     }
+
+    /// Creates a new `Source` instance from a string slice.
+    pub fn from_str(filename: &'a str, code: &'a str) -> Self {
+        Source {
+            filename,
+            code: code.to_string(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -21,7 +29,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_source_creation() {
+    fn test_source_new() {
         let filename = "test_file.txt";
         let code = "fn main() { println!(\"Hello, world!\"); }";
         std::fs::write(filename, code).unwrap();
@@ -31,5 +39,15 @@ mod tests {
         assert_eq!(source.code, code);
 
         std::fs::remove_file(filename).unwrap();
+    }
+
+    #[test]
+    fn test_source_from_str() {
+        let filename = "test_file.txt";
+        let code = "fn main() { println!(\"Hello, world!\"); }";
+        let source = Source::from_str(filename, code);
+
+        assert_eq!(source.filename, filename);
+        assert_eq!(source.code, code);
     }
 }

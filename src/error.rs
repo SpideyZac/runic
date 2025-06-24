@@ -190,10 +190,10 @@ mod tests {
 
     #[test]
     fn test_error_display_single_line() {
-        let source = Source {
-            filename: "test.rs",
-            code: "fn main() {\n    println!(\"Hello, world!\");\n}".to_string(),
-        };
+        let source = Source::from_str(
+            "test.rs",
+            "fn main() {\n    println!(\"Hello, world!\");\n}",
+        );
         let span = Span { start: 12, end: 25 };
         let error = Error::new("Syntax error".to_string(), &source, span)
             .with_context("In function main".to_string())
@@ -203,10 +203,10 @@ mod tests {
 
     #[test]
     fn test_error_display_multi_line() {
-        let source = Source {
-            filename: "test.rs",
-            code: "fn main() {\n    println!(\"Hello, world!\");\n    let x = 10;\n}".to_string(),
-        };
+        let source = Source::from_str(
+            "test.rs",
+            "fn main() {\n    println!(\"Hello, world!\");\n}",
+        );
         let span = Span { start: 12, end: 40 };
         let error = Error::new("Syntax error".to_string(), &source, span)
             .with_context("In function main".to_string())
