@@ -1,6 +1,7 @@
 //! This module defines the `Source` struct, which encapsulates source code and its associated filename.
 
 /// Represents source code along with its filename.
+#[derive(Debug)]
 pub struct Source<'a> {
     /// The filename of the source code.
     pub filename: &'a str,

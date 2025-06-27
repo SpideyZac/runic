@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// Represents an advanced error.
+#[derive(Debug)]
 pub struct Error<'a> {
     /// The error message describing the issue.
     message: String,
