@@ -195,8 +195,58 @@ pub mod utils {
         };
     }
 
+    /// Creates a lexer rule that matches a specific word.
+    /// Words are the sequences of strings that are separated by a space.
+    ///
+    /// For example, if we want to match the word `"let"` (specifically `"let"` followed by either a space or `EOF`) in the string `"let x = 10;"`,
+    /// we should use this macro.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// use runic::lexer::utils::match_word;
+    ///
+    /// match_word!("let", String, "let".to_string(), LetRule);
+    /// ```
+    #[allow(unused_macros)]
+    macro_rules! match_word {
+        ($word:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
+            struct $rule_name;
+            impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                fn get_token(
+                    &self,
+                    lexer: &mut crate::lexer::Lexer<'a, $token_type>,
+                ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                    let start_pos = lexer.position;
+                    let mut matched = true;
+
+                    for c in $word.chars() {
+                        if lexer.current_char == Some(c) {
+                            lexer.advance();
+                        } else {
+                            matched = false;
+                            break;
+                        }
+                    }
+
+                    if matched && (lexer.current_char == Some(' ') || lexer.current_char.is_none())
+                    {
+                        Ok(Some(crate::token::Token::new(
+                            $token_value,
+                            crate::span::Span::new(start_pos, lexer.position),
+                        )))
+                    } else {
+                        Ok(None)
+                    }
+                }
+            }
+        };
+    }
+
     #[allow(unused_imports)]
     pub(crate) use match_string;
+    #[allow(unused_imports)]
+    pub(crate) use match_word;
     #[allow(unused_imports)]
     pub(crate) use rules_vec;
 
@@ -242,6 +292,25 @@ pub mod utils {
             assert!(token.is_none());
             assert_eq!(lexer.position, 3);
             assert_eq!(lexer.current_char, Some(' '));
+        }
+
+        #[test]
+        fn test_match_word_macro() {
+            match_word!("let", String, "let".to_string(), LetRule);
+            let source = Source::from_str("test_input.txt", "let x = 10;");
+            let rules = rules_vec![LetRule];
+            let mut lexer = Lexer::<String>::new(&source, rules);
+
+            let token = lexer.get_token().unwrap();
+            assert!(token.is_some());
+            let token = token.unwrap();
+            assert_eq!(token.kind, "let");
+
+            let source = Source::from_str("test_input.txt", "letx = 10;");
+            let rules = rules_vec![LetRule];
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+            assert!(token.is_none());
         }
     }
 
