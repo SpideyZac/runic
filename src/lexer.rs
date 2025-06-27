@@ -114,11 +114,12 @@ impl<'a, T> Lexer<'a, T> {
 pub mod utils {
     use crate::lexer::LexerRule;
 
-    /// A macro to create a vector of lexer rules.
+    /// Creates a vector of lexer rules.
     ///
-    /// Example usage:
+    /// # Usage
+    ///
     /// ```rust
-    /// use runic::lexer::{utils::SkipWhitespaceRule, utils::rules_vec};
+    /// use runic::lexer::utils::{SkipWhitespaceRule, rules_vec};
     ///
     /// let rules = rules_vec![SkipWhitespaceRule]; // vec![Box::new(SkipWhitespaceRule)]
     /// ```
@@ -151,6 +152,51 @@ pub mod utils {
         }
     }
 
+    /// Creates a lexer rule that matches a specific string.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// use runic::lexer::utils::match_string;
+    ///
+    /// match_string!("let", String, "let".to_string(), LetRule); // `"let"` is the string to match, `String` is the type of the token, `"let".to_string()` is the token value, and `LetRule` is the name of the rule.
+    /// ```
+    #[allow(unused_macros)]
+    macro_rules! match_string {
+        ($string:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
+            struct $rule_name;
+            impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                fn get_token(
+                    &self,
+                    lexer: &mut crate::lexer::Lexer<'a, $token_type>,
+                ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                    let start_pos = lexer.position;
+                    let mut matched = true;
+
+                    for c in $string.chars() {
+                        if lexer.current_char == Some(c) {
+                            lexer.advance();
+                        } else {
+                            matched = false;
+                            break;
+                        }
+                    }
+
+                    if matched {
+                        Ok(Some(crate::token::Token::new(
+                            $token_value,
+                            crate::span::Span::new(start_pos, lexer.position),
+                        )))
+                    } else {
+                        Ok(None)
+                    }
+                }
+            }
+        };
+    }
+
+    #[allow(unused_imports)]
+    pub(crate) use match_string;
     #[allow(unused_imports)]
     pub(crate) use rules_vec;
 
@@ -178,6 +224,24 @@ pub mod utils {
                 rules_vec![SkipWhitespaceRule];
             assert_eq!(rules.len(), 1);
             assert!(rules[0].generates_token() == false);
+        }
+
+        #[test]
+        fn test_match_string_macro() {
+            match_string!("let", String, "let".to_string(), LetRule);
+            let source = Source::from_str("test_input.txt", "let x = 10;");
+            let rules = rules_vec![LetRule];
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_some());
+            let token = token.unwrap();
+            assert_eq!(token.kind, "let");
+
+            let token = lexer.get_token().unwrap();
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 3);
+            assert_eq!(lexer.current_char, Some(' '));
         }
     }
 
