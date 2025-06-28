@@ -17,7 +17,7 @@ pub trait LexerRule<'a, T> {
     ///
     /// If an error occurs, the lexer will stop processing and return the error.
     /// Otherwise, it will continue to the next rule.
-    fn get_token(&self, lexer: &mut Lexer<'a, T>) -> Result<Option<Token<T>>, Error>;
+    fn get_token(&self, lexer: &mut Lexer<'a, T>) -> Result<Option<Token<T>>, Error<'a>>;
     /// This method returns `true` if the rule generates a token,
     /// and `false` if it does not.
     ///
@@ -88,7 +88,7 @@ impl<'a, T> Lexer<'a, T> {
     /// If a token is found, it returns `Ok(Some(token))`.
     /// If no token is found, it returns `Ok(None)`.
     /// If an error occurs, it returns `Err(error)`.
-    pub fn get_token(&mut self) -> Result<Option<Token<T>>, Error> {
+    pub fn get_token(&mut self) -> Result<Option<Token<T>>, Error<'a>> {
         // TODO: refactor this to avoid using unsafe?
 
         let self_ptr = self as *mut Self;
@@ -148,7 +148,7 @@ pub mod utils {
                     fn get_token(
                         &self,
                         lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error<'a>>
                     {
                         let start_pos = lexer.position;
                         let mut matched = true;
@@ -196,7 +196,7 @@ pub mod utils {
                     fn get_token(
                         &self,
                         lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error<'a>>
                     {
                         let start_pos = lexer.position;
                         let mut matched = true;
@@ -236,7 +236,7 @@ pub mod utils {
         fn get_token(
             &self,
             lexer: &mut super::Lexer<'a, T>,
-        ) -> Result<Option<crate::token::Token<T>>, crate::error::Error> {
+        ) -> Result<Option<crate::token::Token<T>>, crate::error::Error<'a>> {
             while let Some(c) = lexer.current_char {
                 if c.is_whitespace() {
                     lexer.advance();
@@ -367,7 +367,7 @@ mod tests {
             fn get_token(
                 &self,
                 lexer: &mut Lexer<'a, String>,
-            ) -> Result<Option<Token<String>>, Error> {
+            ) -> Result<Option<Token<String>>, Error<'a>> {
                 if lexer.current_char == Some('l') {
                     lexer.advance();
                     Ok(Some(Token::new("let".to_string(), Span::new(0, 3))))
