@@ -120,14 +120,14 @@ pub mod utils {
         /// # Usage
         ///
         /// ```rust
-        /// use runic::lexer::utils::{SkipWhitespaceRule, rules_vec};
+        /// use runic_kit::lexer::utils::{SkipWhitespaceRule, rules_vec};
         ///
-        /// let rules = rules_vec![SkipWhitespaceRule]; // vec![Box::new(SkipWhitespaceRule)]
+        /// let rules: Vec<Box<dyn runic_kit::lexer::LexerRule<'_, u8>>> = rules_vec![SkipWhitespaceRule]; // vec![Box::new(SkipWhitespaceRule)]
         /// ```
         #[macro_export]
         macro_rules! rules_vec {
             ($($rule:expr),* $(,)?) => {
-                vec![$(Box::new($rule) as Box<dyn LexerRule<'_, _>>),*]
+                vec![$(Box::new($rule) as Box<dyn $crate::lexer::LexerRule<'_, _>>),*]
             };
         }
 
@@ -136,7 +136,7 @@ pub mod utils {
         /// # Usage
         ///
         /// ```rust
-        /// use runic::lexer::utils::match_string;
+        /// use runic_kit::lexer::utils::match_string;
         ///
         /// match_string!("let", String, "let".to_string(), LetRule); // `"let"` is the string to match, `String` is the type of the token, `"let".to_string()` is the token value, and `LetRule` is the name of the rule.
         /// ```
@@ -144,11 +144,12 @@ pub mod utils {
         macro_rules! match_string {
             ($string:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
                 struct $rule_name;
-                impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                impl<'a> $crate::lexer::LexerRule<'a, $token_type> for $rule_name {
                     fn get_token(
                         &self,
-                        lexer: &mut crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                        lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    {
                         let start_pos = lexer.position;
                         let mut matched = true;
 
@@ -162,9 +163,9 @@ pub mod utils {
                         }
 
                         if matched {
-                            Ok(Some(crate::token::Token::new(
+                            Ok(Some($crate::token::Token::new(
                                 $token_value,
-                                crate::span::Span::new(start_pos, lexer.position),
+                                $crate::span::Span::new(start_pos, lexer.position),
                             )))
                         } else {
                             Ok(None)
@@ -183,7 +184,7 @@ pub mod utils {
         /// # Usage
         ///
         /// ```rust
-        /// use runic::lexer::utils::match_word;
+        /// use runic_kit::lexer::utils::match_word;
         ///
         /// match_word!("let", String, "let".to_string(), LetRule);
         /// ```
@@ -191,11 +192,12 @@ pub mod utils {
         macro_rules! match_word {
             ($word:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
                 struct $rule_name;
-                impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                impl<'a> $crate::lexer::LexerRule<'a, $token_type> for $rule_name {
                     fn get_token(
                         &self,
-                        lexer: &mut crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                        lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    {
                         let start_pos = lexer.position;
                         let mut matched = true;
 
@@ -208,11 +210,12 @@ pub mod utils {
                             }
                         }
 
-                        if matched && (lexer.current_char == Some(' ') || lexer.current_char.is_none())
+                        if matched
+                            && (lexer.current_char == Some(' ') || lexer.current_char.is_none())
                         {
-                            Ok(Some(crate::token::Token::new(
+                            Ok(Some($crate::token::Token::new(
                                 $token_value,
-                                crate::span::Span::new(start_pos, lexer.position),
+                                $crate::span::Span::new(start_pos, lexer.position),
                             )))
                         } else {
                             Ok(None)
@@ -222,9 +225,9 @@ pub mod utils {
             };
         }
 
-        pub use rules_vec;
         pub use match_string;
         pub use match_word;
+        pub use rules_vec;
     }
 
     /// A lexer rule that skips whitespace characters.
@@ -249,7 +252,7 @@ pub mod utils {
         }
     }
 
-    pub use macros::{rules_vec, match_string, match_word};
+    pub use macros::{match_string, match_word, rules_vec};
 
     #[cfg(test)]
     mod tests {

@@ -1,5 +1,5 @@
 [package]
-name = "runic"
+name = "runic-kit"
 version = "0.0.1"
 edition = "2024"
 authors = ["Zachary Lesser <zacmlesser-7@outlook.com>"]

@@ -187,7 +187,7 @@ impl<'a> Error<'a> {
 /// # Usage
 ///
 /// ```rust
-/// use runic::error::basic_error;
+/// use runic_kit::error::basic_error;
 ///
 /// basic_error("An error occurred".to_string()); // Displays: "error: An error occurred"
 /// ```

@@ -31,7 +31,7 @@ impl Span {
 /// # Usage
 ///
 /// ```rust
-/// use runic::span::location_to_line_col;
+/// use runic_kit::span::location_to_line_col;
 ///
 /// let source = "Hello\nWorld";
 /// let index = 6; // Byte index of 'W'
