@@ -182,6 +182,19 @@ impl<'a> Error<'a> {
     }
 }
 
+/// Displays a basic error message.
+///
+/// # Usage
+///
+/// ```rust
+/// use runic::error::basic_error;
+///
+/// basic_error("An error occurred".to_string()); // Displays: "error: An error occurred"
+/// ```
+pub fn basic_error(message: String) {
+    eprintln!("{}: {}", "error".red().bold(), message.bold());
+}
+
 #[cfg(test)]
 mod tests {
     // TODO: check stdout for expected output
@@ -213,5 +226,11 @@ mod tests {
             .with_context("In function main".to_string())
             .with_note("Check the syntax".to_string());
         error.display();
+    }
+
+    #[test]
+    fn test_basic_error() {
+        let message = "An error occurred".to_string();
+        basic_error(message);
     }
 }
