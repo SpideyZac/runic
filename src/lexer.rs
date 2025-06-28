@@ -8,10 +8,10 @@
 
 use crate::{error::Error, source::Source, token::Token};
 
-/// A trait that defines the interface for lexer rules.
+/// Defines the interface for lexer rules.
 pub trait LexerRule<'a, T> {
     /// This method is called to get a token from the lexer.
-    /// /// It should return `Ok(Some(token))` if a token is found,
+    /// It should return `Ok(Some(token))` if a token is found,
     /// `Ok(None)` if no token is found,
     /// or `Err(error)` if an error occurs.
     ///
@@ -31,7 +31,7 @@ pub trait LexerRule<'a, T> {
     }
 }
 
-/// A struct which is responsible for tokenizing the source code.
+/// Tokenizes the source code.
 pub struct Lexer<'a, T> {
     /// The source code to be tokenized.
     pub source: &'a Source<'a>,
@@ -114,20 +114,117 @@ impl<'a, T> Lexer<'a, T> {
 pub mod utils {
     use crate::lexer::LexerRule;
 
-    /// Creates a vector of lexer rules.
-    ///
-    /// # Usage
-    ///
-    /// ```rust
-    /// use runic::lexer::utils::{SkipWhitespaceRule, rules_vec};
-    ///
-    /// let rules = rules_vec![SkipWhitespaceRule]; // vec![Box::new(SkipWhitespaceRule)]
-    /// ```
-    #[allow(unused_macros)]
-    macro_rules! rules_vec {
-        ($($rule:expr),* $(,)?) => {
-            vec![$(Box::new($rule) as Box<dyn LexerRule<'_, _>>),*]
-        };
+    mod macros {
+        /// Creates a vector of lexer rules.
+        ///
+        /// # Usage
+        ///
+        /// ```rust
+        /// use runic::lexer::utils::{SkipWhitespaceRule, rules_vec};
+        ///
+        /// let rules = rules_vec![SkipWhitespaceRule]; // vec![Box::new(SkipWhitespaceRule)]
+        /// ```
+        #[macro_export]
+        macro_rules! rules_vec {
+            ($($rule:expr),* $(,)?) => {
+                vec![$(Box::new($rule) as Box<dyn LexerRule<'_, _>>),*]
+            };
+        }
+
+        /// Creates a lexer rule that matches a specific string.
+        ///
+        /// # Usage
+        ///
+        /// ```rust
+        /// use runic::lexer::utils::match_string;
+        ///
+        /// match_string!("let", String, "let".to_string(), LetRule); // `"let"` is the string to match, `String` is the type of the token, `"let".to_string()` is the token value, and `LetRule` is the name of the rule.
+        /// ```
+        #[macro_export]
+        macro_rules! match_string {
+            ($string:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
+                struct $rule_name;
+                impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                    fn get_token(
+                        &self,
+                        lexer: &mut crate::lexer::Lexer<'a, $token_type>,
+                    ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                        let start_pos = lexer.position;
+                        let mut matched = true;
+
+                        for c in $string.chars() {
+                            if lexer.current_char == Some(c) {
+                                lexer.advance();
+                            } else {
+                                matched = false;
+                                break;
+                            }
+                        }
+
+                        if matched {
+                            Ok(Some(crate::token::Token::new(
+                                $token_value,
+                                crate::span::Span::new(start_pos, lexer.position),
+                            )))
+                        } else {
+                            Ok(None)
+                        }
+                    }
+                }
+            };
+        }
+
+        /// Creates a lexer rule that matches a specific word.
+        /// Words are the sequences of strings that are separated by a space.
+        ///
+        /// For example, if we want to match the word `"let"` (specifically `"let"` followed by either a space or `EOF`) in the string `"let x = 10;"`,
+        /// we should use this macro.
+        ///
+        /// # Usage
+        ///
+        /// ```rust
+        /// use runic::lexer::utils::match_word;
+        ///
+        /// match_word!("let", String, "let".to_string(), LetRule);
+        /// ```
+        #[macro_export]
+        macro_rules! match_word {
+            ($word:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
+                struct $rule_name;
+                impl<'a> LexerRule<'a, $token_type> for $rule_name {
+                    fn get_token(
+                        &self,
+                        lexer: &mut crate::lexer::Lexer<'a, $token_type>,
+                    ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
+                        let start_pos = lexer.position;
+                        let mut matched = true;
+
+                        for c in $word.chars() {
+                            if lexer.current_char == Some(c) {
+                                lexer.advance();
+                            } else {
+                                matched = false;
+                                break;
+                            }
+                        }
+
+                        if matched && (lexer.current_char == Some(' ') || lexer.current_char.is_none())
+                        {
+                            Ok(Some(crate::token::Token::new(
+                                $token_value,
+                                crate::span::Span::new(start_pos, lexer.position),
+                            )))
+                        } else {
+                            Ok(None)
+                        }
+                    }
+                }
+            };
+        }
+
+        pub use rules_vec;
+        pub use match_string;
+        pub use match_word;
     }
 
     /// A lexer rule that skips whitespace characters.
@@ -152,103 +249,7 @@ pub mod utils {
         }
     }
 
-    /// Creates a lexer rule that matches a specific string.
-    ///
-    /// # Usage
-    ///
-    /// ```rust
-    /// use runic::lexer::utils::match_string;
-    ///
-    /// match_string!("let", String, "let".to_string(), LetRule); // `"let"` is the string to match, `String` is the type of the token, `"let".to_string()` is the token value, and `LetRule` is the name of the rule.
-    /// ```
-    #[allow(unused_macros)]
-    macro_rules! match_string {
-        ($string:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
-            struct $rule_name;
-            impl<'a> LexerRule<'a, $token_type> for $rule_name {
-                fn get_token(
-                    &self,
-                    lexer: &mut crate::lexer::Lexer<'a, $token_type>,
-                ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
-                    let start_pos = lexer.position;
-                    let mut matched = true;
-
-                    for c in $string.chars() {
-                        if lexer.current_char == Some(c) {
-                            lexer.advance();
-                        } else {
-                            matched = false;
-                            break;
-                        }
-                    }
-
-                    if matched {
-                        Ok(Some(crate::token::Token::new(
-                            $token_value,
-                            crate::span::Span::new(start_pos, lexer.position),
-                        )))
-                    } else {
-                        Ok(None)
-                    }
-                }
-            }
-        };
-    }
-
-    /// Creates a lexer rule that matches a specific word.
-    /// Words are the sequences of strings that are separated by a space.
-    ///
-    /// For example, if we want to match the word `"let"` (specifically `"let"` followed by either a space or `EOF`) in the string `"let x = 10;"`,
-    /// we should use this macro.
-    ///
-    /// # Usage
-    ///
-    /// ```rust
-    /// use runic::lexer::utils::match_word;
-    ///
-    /// match_word!("let", String, "let".to_string(), LetRule);
-    /// ```
-    #[allow(unused_macros)]
-    macro_rules! match_word {
-        ($word:expr, $token_type:ty, $token_value:expr, $rule_name:ident) => {
-            struct $rule_name;
-            impl<'a> LexerRule<'a, $token_type> for $rule_name {
-                fn get_token(
-                    &self,
-                    lexer: &mut crate::lexer::Lexer<'a, $token_type>,
-                ) -> Result<Option<crate::token::Token<$token_type>>, crate::error::Error> {
-                    let start_pos = lexer.position;
-                    let mut matched = true;
-
-                    for c in $word.chars() {
-                        if lexer.current_char == Some(c) {
-                            lexer.advance();
-                        } else {
-                            matched = false;
-                            break;
-                        }
-                    }
-
-                    if matched && (lexer.current_char == Some(' ') || lexer.current_char.is_none())
-                    {
-                        Ok(Some(crate::token::Token::new(
-                            $token_value,
-                            crate::span::Span::new(start_pos, lexer.position),
-                        )))
-                    } else {
-                        Ok(None)
-                    }
-                }
-            }
-        };
-    }
-
-    #[allow(unused_imports)]
-    pub(crate) use match_string;
-    #[allow(unused_imports)]
-    pub(crate) use match_word;
-    #[allow(unused_imports)]
-    pub(crate) use rules_vec;
+    pub use macros::{rules_vec, match_string, match_word};
 
     #[cfg(test)]
     mod tests {
