@@ -17,7 +17,7 @@ pub trait LexerRule<'a, T> {
     ///
     /// If an error occurs, the lexer will stop processing and return the error.
     /// Otherwise, it will continue to the next rule.
-    fn get_token(&self, lexer: &mut Lexer<'a, T>) -> Result<Option<Token<T>>, Error>;
+    fn get_token(&self, lexer: &mut Lexer<'a, T>) -> Result<Option<Token<T>>, Error<'a>>;
     /// This method returns `true` if the rule generates a token,
     /// and `false` if it does not.
     ///
@@ -88,7 +88,7 @@ impl<'a, T> Lexer<'a, T> {
     /// If a token is found, it returns `Ok(Some(token))`.
     /// If no token is found, it returns `Ok(None)`.
     /// If an error occurs, it returns `Err(error)`.
-    pub fn get_token(&mut self) -> Result<Option<Token<T>>, Error> {
+    pub fn get_token(&mut self) -> Result<Option<Token<T>>, Error<'a>> {
         // TODO: refactor this to avoid using unsafe?
 
         let self_ptr = self as *mut Self;
@@ -148,7 +148,7 @@ pub mod utils {
                     fn get_token(
                         &self,
                         lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error<'a>>
                     {
                         let start_pos = lexer.position;
                         let mut matched = true;
@@ -196,7 +196,7 @@ pub mod utils {
                     fn get_token(
                         &self,
                         lexer: &mut $crate::lexer::Lexer<'a, $token_type>,
-                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error>
+                    ) -> Result<Option<$crate::token::Token<$token_type>>, $crate::error::Error<'a>>
                     {
                         let start_pos = lexer.position;
                         let mut matched = true;
@@ -236,7 +236,7 @@ pub mod utils {
         fn get_token(
             &self,
             lexer: &mut super::Lexer<'a, T>,
-        ) -> Result<Option<crate::token::Token<T>>, crate::error::Error> {
+        ) -> Result<Option<crate::token::Token<T>>, crate::error::Error<'a>> {
             while let Some(c) = lexer.current_char {
                 if c.is_whitespace() {
                     lexer.advance();
@@ -250,6 +250,104 @@ pub mod utils {
         fn generates_token(&self) -> bool {
             false
         }
+    }
+
+    /// A lexer rule that skips comments.
+    pub struct SkipCommentsRule {
+        pub single_line: &'static str,
+        pub multi_line_start: &'static str,
+        pub multi_line_end: &'static str,
+    }
+    impl<'a, T> LexerRule<'a, T> for SkipCommentsRule {
+        fn get_token(
+            &self,
+            lexer: &mut super::Lexer<'a, T>,
+        ) -> Result<Option<crate::token::Token<T>>, crate::error::Error<'a>> {
+            let start_pos = lexer.position;
+
+            if !self.single_line.is_empty() && matches_sequence(lexer, self.single_line) {
+                while let Some(c) = lexer.current_char {
+                    if c == '\n' || c == '\r' {
+                        break;
+                    }
+                    lexer.advance();
+                }
+                return Ok(None);
+            }
+
+            if !self.multi_line_start.is_empty() && matches_sequence(lexer, self.multi_line_start) {
+                while let Some(_) = lexer.current_char {
+                    if !self.multi_line_end.is_empty()
+                        && matches_sequence(lexer, self.multi_line_end)
+                    {
+                        return Ok(None);
+                    }
+                    lexer.advance();
+                }
+
+                return Err(crate::error::Error::new(
+                    "Unterminated multi-line comment".to_string(),
+                    &lexer.source,
+                    crate::span::Span::new(start_pos, lexer.position),
+                ));
+            }
+
+            Ok(None)
+        }
+
+        fn generates_token(&self) -> bool {
+            false
+        }
+    }
+
+    /// Helper function to check if the current position matches a given sequence.
+    /// If the sequence doesn't match, the lexer position is reset to the original position.
+    ///
+    /// # Arguments
+    /// * `lexer` - The lexer instance
+    /// * `sequence` - The string sequence to match
+    ///
+    /// # Returns
+    /// * `true` if the sequence matches, `false` otherwise
+    ///
+    /// # Example
+    /// ```rust
+    /// use runic_kit::lexer::{Lexer, utils::matches_sequence};
+    /// use runic_kit::source::Source;
+    ///
+    /// let source = Source::from_str("test.txt", "let x = 10;");
+    /// let mut lexer = Lexer::<String>::new(&source, vec![]);
+    ///
+    /// // Check if current position matches "let"
+    /// if matches_sequence(&mut lexer, "let") {
+    ///     println!("Found 'let' at position {}", lexer.position);
+    /// } else {
+    ///     // Position is reset to original position
+    ///     println!("No match, position is {}", lexer.position);
+    /// }
+    /// ```
+    pub fn matches_sequence<T>(lexer: &mut super::Lexer<'_, T>, sequence: &str) -> bool {
+        if sequence.is_empty() {
+            return false;
+        }
+
+        let start_pos = lexer.position;
+        let mut matched = true;
+
+        for c in sequence.chars() {
+            if lexer.current_char == Some(c) {
+                lexer.advance();
+            } else {
+                matched = false;
+                break;
+            }
+        }
+
+        if !matched {
+            lexer.jump_to(start_pos);
+        }
+
+        matched
     }
 
     pub use macros::{match_string, match_word, rules_vec};
@@ -269,6 +367,95 @@ pub mod utils {
 
             assert!(token.is_none());
             assert_eq!(lexer.position, 5);
+            assert_eq!(lexer.current_char, Some('l'));
+        }
+
+        #[test]
+        fn test_skip_comments_rule() {
+            let source = Source::from_str("test_input.txt", "// This is a comment\nlet x = 10;");
+            let rules = rules_vec![SkipCommentsRule {
+                single_line: "//",
+                multi_line_start: "/*",
+                multi_line_end: "*/",
+            }];
+
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 20);
+            assert_eq!(lexer.current_char, Some('\n'));
+        }
+
+        #[test]
+        fn test_skip_comments_rule_multi_line() {
+            let source = Source::from_str("test_input.txt", "/* This is a comment */let x = 10;");
+            let rules = rules_vec![SkipCommentsRule {
+                single_line: "//",
+                multi_line_start: "/*",
+                multi_line_end: "*/",
+            }];
+
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 23);
+            assert_eq!(lexer.current_char, Some('l'));
+        }
+
+        #[test]
+        fn test_skip_comments_rule_custom_syntax() {
+            // Test with custom comment syntax like Python's # comments
+            let source = Source::from_str("test_input.txt", "# This is a comment\nlet x = 10;");
+            let rules = rules_vec![SkipCommentsRule {
+                single_line: "#",
+                multi_line_start: "",
+                multi_line_end: "",
+            }];
+
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 19);
+            assert_eq!(lexer.current_char, Some('\n'));
+        }
+
+        #[test]
+        fn test_skip_comments_rule_long_syntax() {
+            // Test with longer comment syntax like HTML comments
+            let source =
+                Source::from_str("test_input.txt", "<!-- This is a comment -->let x = 10;");
+            let rules = rules_vec![SkipCommentsRule {
+                single_line: "",
+                multi_line_start: "<!--",
+                multi_line_end: "-->",
+            }];
+
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 26);
+            assert_eq!(lexer.current_char, Some('l'));
+        }
+
+        #[test]
+        fn test_skip_comments_rule_no_comments() {
+            // Test that it doesn't skip anything when no comment markers are present
+            let source = Source::from_str("test_input.txt", "let x = 10;");
+            let rules = rules_vec![SkipCommentsRule {
+                single_line: "//",
+                multi_line_start: "/*",
+                multi_line_end: "*/",
+            }];
+
+            let mut lexer = Lexer::<String>::new(&source, rules);
+            let token = lexer.get_token().unwrap();
+
+            assert!(token.is_none());
+            assert_eq!(lexer.position, 0); // Position should not change
             assert_eq!(lexer.current_char, Some('l'));
         }
 
@@ -315,6 +502,30 @@ pub mod utils {
             let mut lexer = Lexer::<String>::new(&source, rules);
             let token = lexer.get_token().unwrap();
             assert!(token.is_none());
+        }
+
+        #[test]
+        fn test_matches_sequence_utility() {
+            let source = Source::from_str("test_input.txt", "let x = 10;");
+            let mut lexer = Lexer::<String>::new(&source, vec![]);
+
+            // Test successful match
+            assert!(matches_sequence(&mut lexer, "let"));
+            assert_eq!(lexer.position, 3);
+            assert_eq!(lexer.current_char, Some(' '));
+
+            // Test failed match - position should be reset
+            let source = Source::from_str("test_input.txt", "abc x = 10;");
+            let mut lexer = Lexer::<String>::new(&source, vec![]);
+            let original_pos = lexer.position;
+
+            assert!(!matches_sequence(&mut lexer, "let"));
+            assert_eq!(lexer.position, original_pos); // Position should be reset
+            assert_eq!(lexer.current_char, Some('a'));
+
+            // Test empty sequence
+            assert!(!matches_sequence(&mut lexer, ""));
+            assert_eq!(lexer.position, original_pos);
         }
     }
 
@@ -367,7 +578,7 @@ mod tests {
             fn get_token(
                 &self,
                 lexer: &mut Lexer<'a, String>,
-            ) -> Result<Option<Token<String>>, Error> {
+            ) -> Result<Option<Token<String>>, Error<'a>> {
                 if lexer.current_char == Some('l') {
                     lexer.advance();
                     Ok(Some(Token::new("let".to_string(), Span::new(0, 3))))
