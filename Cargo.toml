@@ -9,7 +9,7 @@ repository = "https://github.com/SpideyZac/runic"
 homepage = "https://github.com/SpideyZac/runic"
 readme = "README.md"
 keywords = ["lexer", "parser", "interpreter", "transpiler", "compiler", "rust", "toolkit"]
-categories = ["development-tools"]
+categories = ["parsing"]
 
 [dependencies]
 colored = "3.0.0"
