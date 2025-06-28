@@ -252,6 +252,56 @@ pub mod utils {
         }
     }
 
+    /// Helper function to check if the current position matches a given sequence.
+    /// If the sequence doesn't match, the lexer position is reset to the original position.
+    ///
+    /// # Arguments
+    /// * `lexer` - The lexer instance
+    /// * `sequence` - The string sequence to match
+    ///
+    /// # Returns
+    /// * `true` if the sequence matches, `false` otherwise
+    ///
+    /// # Example
+    /// ```rust
+    /// use runic_kit::lexer::{Lexer, utils::matches_sequence};
+    /// use runic_kit::source::Source;
+    ///
+    /// let source = Source::from_str("test.txt", "let x = 10;");
+    /// let mut lexer = Lexer::<String>::new(&source, vec![]);
+    ///
+    /// // Check if current position matches "let"
+    /// if matches_sequence(&mut lexer, "let") {
+    ///     println!("Found 'let' at position {}", lexer.position);
+    /// } else {
+    ///     // Position is reset to original position
+    ///     println!("No match, position is {}", lexer.position);
+    /// }
+    /// ```
+    pub fn matches_sequence<T>(lexer: &mut super::Lexer<'_, T>, sequence: &str) -> bool {
+        if sequence.is_empty() {
+            return false;
+        }
+
+        let start_pos = lexer.position;
+        let mut matched = true;
+
+        for c in sequence.chars() {
+            if lexer.current_char == Some(c) {
+                lexer.advance();
+            } else {
+                matched = false;
+                break;
+            }
+        }
+
+        if !matched {
+            lexer.jump_to(start_pos);
+        }
+
+        matched
+    }
+
     pub use macros::{match_string, match_word, rules_vec};
 
     #[cfg(test)]
@@ -315,6 +365,30 @@ pub mod utils {
             let mut lexer = Lexer::<String>::new(&source, rules);
             let token = lexer.get_token().unwrap();
             assert!(token.is_none());
+        }
+
+        #[test]
+        fn test_matches_sequence_utility() {
+            let source = Source::from_str("test_input.txt", "let x = 10;");
+            let mut lexer = Lexer::<String>::new(&source, vec![]);
+
+            // Test successful match
+            assert!(matches_sequence(&mut lexer, "let"));
+            assert_eq!(lexer.position, 3);
+            assert_eq!(lexer.current_char, Some(' '));
+
+            // Test failed match - position should be reset
+            let source = Source::from_str("test_input.txt", "abc x = 10;");
+            let mut lexer = Lexer::<String>::new(&source, vec![]);
+            let original_pos = lexer.position;
+
+            assert!(!matches_sequence(&mut lexer, "let"));
+            assert_eq!(lexer.position, original_pos); // Position should be reset
+            assert_eq!(lexer.current_char, Some('a'));
+
+            // Test empty sequence
+            assert!(!matches_sequence(&mut lexer, ""));
+            assert_eq!(lexer.position, original_pos);
         }
     }
 
