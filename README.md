@@ -1,5 +1,11 @@
 # Runic
 
+<img src="./docs/images/logo.svg" alt="Runic Logo" width="120"/>
+
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
+![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)
+
 Runic is a minimalist Rust library for building lexers, parsers, interpreters, transpilers, and compilers. It provides the raw tools needed to construct language tooling from scratch, without relying on parser generators, grammar files, or heavyweight abstractions.
 
 Inspired by the raw expressiveness of early programming tools and languages, Runic helps you forge your own compilers and interpreters using simple, explicit, and composable components.
