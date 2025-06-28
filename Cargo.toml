@@ -1,7 +1,15 @@
 [package]
 name = "runic"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
+authors = ["Zachary Lesser <zacmlesser-7@outlook.com>"]
+description = "Minimalist Rust toolkit for building lexers, parsers, interpreters, transpilers, and compilers from scratch."
+license = "MIT"
+repository = "https://github.com/SpideyZac/runic"
+homepage = "https://github.com/SpideyZac/runic"
+readme = "README.md"
+keywords = ["lexer", "parser", "interpreter", "transpiler", "compiler", "rust", "toolkit"]
+categories = ["development-tools"]
 
 [dependencies]
 colored = "3.0.0"
